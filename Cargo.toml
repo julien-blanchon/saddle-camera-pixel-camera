@@ -1,0 +1,18 @@
+[package]
+name = "saddle-camera-pixel-camera"
+version = "0.1.0"
+edition = "2024"
+publish = false
+repository = "https://github.com/julien-blanchon/saddle-camera-pixel-camera"
+license = "MIT-0"
+description = "Pixel-perfect render-to-texture camera stack with integer scaling, subpixel smoothing, runtime zoom, and crate-local BRP/E2E verification"
+
+[dependencies]
+bevy = { version = "0.18", features = ["serialize"] }
+
+[workspace]
+
+[lints.clippy]
+too_many_arguments = "allow"
+type_complexity = "allow"
+nonstandard_macro_braces = "warn"

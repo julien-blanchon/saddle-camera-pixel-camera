@@ -1,0 +1,13 @@
+[package]
+name = "saddle-camera-pixel-camera-example-resize"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+bevy = { workspace = true }
+saddle-camera-pixel-camera = { workspace = true }
+saddle-camera-pixel-camera-example-support = { path = "../support" }
+
+[lints]
+workspace = true
