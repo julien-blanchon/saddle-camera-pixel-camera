@@ -2,6 +2,7 @@
 members = [
     "support",
     "basic",
+    "retro_presets",
     "subpixel",
     "resize",
     "shake",

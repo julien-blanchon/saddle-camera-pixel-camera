@@ -1,6 +1,6 @@
 use bevy::{math::UVec2, prelude::*};
 
-use crate::{PixelCamera, PixelViewportMetrics};
+use crate::{PixelCamera, PixelCameraScaleMode, PixelViewportMetrics};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct WindowCanvasInfo {
@@ -11,6 +11,7 @@ pub struct WindowCanvasInfo {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct StaticViewportMetrics {
     pub integer_scale: u32,
+    pub presentation_scale: f32,
     pub zoom: u32,
     pub virtual_size: UVec2,
     pub world_view_size: Vec2,
@@ -39,16 +40,53 @@ pub fn compute_integer_scale(window_physical_size: UVec2, virtual_size: UVec2) -
     scale_x.min(scale_y).max(1)
 }
 
+pub fn compute_crop_scale(window_physical_size: UVec2, virtual_size: UVec2) -> u32 {
+    let virtual_width = virtual_size.x.max(1);
+    let virtual_height = virtual_size.y.max(1);
+    let scale_x = window_physical_size.x.div_ceil(virtual_width);
+    let scale_y = window_physical_size.y.div_ceil(virtual_height);
+    scale_x.max(scale_y).max(1)
+}
+
+pub fn compute_fractional_fit_scale(window_physical_size: UVec2, virtual_size: UVec2) -> f32 {
+    let virtual_width = virtual_size.x.max(1) as f32;
+    let virtual_height = virtual_size.y.max(1) as f32;
+    let scale_x = window_physical_size.x.max(1) as f32 / virtual_width;
+    let scale_y = window_physical_size.y.max(1) as f32 / virtual_height;
+    scale_x.min(scale_y).max(f32::MIN_POSITIVE)
+}
+
 pub fn compute_static_metrics(
     camera: &PixelCamera,
     window: WindowCanvasInfo,
 ) -> StaticViewportMetrics {
     let virtual_size = sanitized_virtual_size(camera.virtual_size);
     let zoom = sanitized_zoom(camera.zoom);
-    let integer_scale = compute_integer_scale(window.physical_size, virtual_size);
-    let viewport_physical_size = virtual_size * integer_scale;
+    let integer_scale = match camera.scale_mode {
+        PixelCameraScaleMode::IntegerLetterbox => {
+            compute_integer_scale(window.physical_size, virtual_size)
+        }
+        PixelCameraScaleMode::IntegerCrop => compute_crop_scale(window.physical_size, virtual_size),
+        PixelCameraScaleMode::FractionalFit => {
+            compute_integer_scale(window.physical_size, virtual_size)
+        }
+    };
+    let presentation_scale = match camera.scale_mode {
+        PixelCameraScaleMode::IntegerLetterbox | PixelCameraScaleMode::IntegerCrop => {
+            integer_scale as f32
+        }
+        PixelCameraScaleMode::FractionalFit => {
+            compute_fractional_fit_scale(window.physical_size, virtual_size)
+        }
+    };
+    let viewport_physical_size = (virtual_size.as_vec2() * presentation_scale)
+        .round()
+        .as_uvec2()
+        .max(UVec2::ONE);
     let viewport_origin_physical =
-        (window.physical_size.as_ivec2() - viewport_physical_size.as_ivec2()) / 2;
+        ((window.physical_size.as_vec2() - viewport_physical_size.as_vec2()) * 0.5)
+            .round()
+            .as_ivec2();
     let scale_factor = window.scale_factor.max(1.0);
     let window_logical_size = window.physical_size.as_vec2() / scale_factor as f32;
     let viewport_logical_size = viewport_physical_size.as_vec2() / scale_factor as f32;
@@ -59,6 +97,7 @@ pub fn compute_static_metrics(
 
     StaticViewportMetrics {
         integer_scale,
+        presentation_scale,
         zoom,
         virtual_size,
         world_view_size,
@@ -76,6 +115,7 @@ pub fn compute_static_metrics(
 
 pub fn apply_static_metrics(target: &mut PixelViewportMetrics, metrics: StaticViewportMetrics) {
     target.integer_scale = metrics.integer_scale;
+    target.presentation_scale = metrics.presentation_scale;
     target.zoom = metrics.zoom;
     target.virtual_size = metrics.virtual_size;
     target.world_view_size = metrics.world_view_size;

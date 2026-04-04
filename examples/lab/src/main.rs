@@ -88,33 +88,49 @@ fn main() {
             update_overlay,
         ),
     );
+    support::install_pane(&mut app);
     support::maybe_install_auto_exit(&mut app);
     app.run();
 }
 
 fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
+    let camera = PixelCamera {
+        virtual_size: support::DEFAULT_VIRTUAL_SIZE,
+        zoom: 1,
+        ..default()
+    };
+    let transform = PixelCameraTransform {
+        logical_position: Vec2::new(-12.5, 8.0),
+    };
+    let shake = PixelShake {
+        frequency: 16.0,
+        decay: 12.0,
+        ..default()
+    };
     support::spawn_demo_world(&mut commands, &mut images);
     support::spawn_cursor_marker(&mut commands, &mut images);
     support::spawn_overlay(&mut commands, "pixel_camera_lab");
     let root = commands
         .spawn((
             Name::new("Lab Pixel Camera"),
-            PixelCamera {
-                virtual_size: support::DEFAULT_VIRTUAL_SIZE,
-                zoom: 1,
-                ..default()
-            },
-            PixelCameraTransform {
-                logical_position: Vec2::new(-12.5, 8.0),
-            },
-            PixelShake {
-                frequency: 16.0,
-                decay: 12.0,
-                ..default()
-            },
+            camera.clone(),
+            transform.clone(),
+            shake,
         ))
         .id();
     commands.insert_resource(LabRoot(root));
+    support::queue_example_pane(
+        &mut commands,
+        support::ExamplePixelPane::from_setup(
+            &camera,
+            transform.logical_position,
+            Some(&PixelShake {
+                frequency: 16.0,
+                decay: 12.0,
+                ..default()
+            }),
+        ),
+    );
 }
 
 fn animate_actor(time: Res<Time>, mut actors: Query<&mut Transform, With<DemoActor>>) {

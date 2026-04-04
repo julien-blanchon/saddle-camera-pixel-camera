@@ -8,6 +8,7 @@ All sizes are expressed in virtual pixels or world units depending on the field.
 | --- | --- | --- | --- | --- |
 | `virtual_size` | `UVec2` | `320x180` | each axis `>= 1` | Target low-resolution canvas before upscale |
 | `zoom` | `u32` | `1` | `>= 1` | Logical zoom multiplier. Higher values reduce visible world area while preserving integer scaling |
+| `scale_mode` | `PixelCameraScaleMode` | `IntegerLetterbox` | enum values below | Controls how the final canvas fits inside the window |
 | `outer_camera_order` | `isize` | `0` | any | Render order for the outer camera. The inner camera uses `order - 1` |
 | `letterbox_color` | `Color` | `Color::BLACK` | any | Clear color outside the fitted pixel canvas |
 | `world_layers` | `RenderLayers` | `PIXEL_LAYERS` | non-overlapping with `high_res_layers` recommended | Layers rendered by the inner pixel camera |
@@ -18,6 +19,23 @@ Notes:
 - `virtual_size` is sanitized to at least `1x1`.
 - `zoom` is sanitized to at least `1`.
 - Integer scale is always computed against `virtual_size`, not against the zoomed world-view size. Zoom changes what the inner camera sees, not how the final canvas fits the window.
+
+### `PixelCameraScaleMode`
+
+| Variant | Effect |
+| --- | --- |
+| `IntegerLetterbox` | Current default behavior: largest integer scale that fully fits inside the window, centered with bars if needed |
+| `IntegerCrop` | Chooses the smallest integer scale that fully covers the window, allowing the canvas to extend past the window edges |
+| `FractionalFit` | Uses a non-integer presentation scale so the canvas fits the window as tightly as possible while preserving aspect ratio |
+
+### Preset Constructors
+
+`PixelCamera` also exposes convenience constructors for common retro targets:
+
+- `PixelCamera::nes()`
+- `PixelCamera::snes()`
+- `PixelCamera::gameboy()`
+- `PixelCamera::gba()`
 
 ## `PixelCameraTransform`
 
@@ -60,6 +78,7 @@ This component is runtime output, not authored config.
 | Field | Meaning |
 | --- | --- |
 | `integer_scale` | Current integer upscale factor |
+| `presentation_scale` | Actual scale used for the final canvas presentation |
 | `zoom` | Sanitized runtime zoom |
 | `virtual_size` | Sanitized virtual resolution |
 | `world_view_size` | World-space size visible through the inner camera after zoom |

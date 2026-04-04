@@ -10,17 +10,19 @@ fn main() {
         .add_plugins(PixelCameraPlugin::default())
         .add_systems(Startup, setup)
         .add_systems(Update, (animate_actor, orbit_badge));
+    support::install_pane(&mut app);
     support::maybe_install_auto_exit(&mut app);
     app.run();
 }
 
 fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
+    let camera = saddle_camera_pixel_camera::PixelCamera::default();
     support::spawn_demo_world(&mut commands, &mut images);
     support::spawn_overlay(&mut commands, "basic.rs\nPixel world + HD badge");
-    support::spawn_pixel_camera_root(
+    support::spawn_pixel_camera_root(&mut commands, camera.clone(), Vec2::ZERO);
+    support::queue_example_pane(
         &mut commands,
-        saddle_camera_pixel_camera::PixelCamera::default(),
-        Vec2::ZERO,
+        support::ExamplePixelPane::from_setup(&camera, Vec2::ZERO, None),
     );
 }
 

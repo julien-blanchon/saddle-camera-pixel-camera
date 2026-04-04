@@ -17,6 +17,7 @@ cargo run -p saddle-camera-pixel-camera-lab --features e2e -- pixel_camera_smoke
 cargo run -p saddle-camera-pixel-camera-lab --features e2e -- pixel_camera_subpixel_scroll
 cargo run -p saddle-camera-pixel-camera-lab --features e2e -- pixel_camera_resize
 cargo run -p saddle-camera-pixel-camera-lab --features e2e -- pixel_camera_zoom
+cargo run -p saddle-camera-pixel-camera-lab --features e2e -- pixel_camera_scale_modes
 cargo run -p saddle-camera-pixel-camera-lab --features e2e -- pixel_camera_mixed_layers
 cargo run -p saddle-camera-pixel-camera-lab --features e2e -- pixel_camera_cursor
 ```

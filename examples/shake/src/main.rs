@@ -13,11 +13,19 @@ fn main() {
         .add_plugins(PixelCameraPlugin::default())
         .add_systems(Startup, setup)
         .add_systems(Update, pulse_shake);
+    support::install_pane(&mut app);
     support::maybe_install_auto_exit(&mut app);
     app.run();
 }
 
 fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
+    let camera = PixelCamera::default();
+    let shake = PixelShake {
+        amplitude: 0.0,
+        frequency: 16.0,
+        decay: 10.0,
+        seed: 7,
+    };
     support::spawn_demo_world(&mut commands, &mut images);
     support::spawn_overlay(
         &mut commands,
@@ -25,15 +33,23 @@ fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
     );
     commands.spawn((
         Name::new("Shake Camera Root"),
-        PixelCamera::default(),
+        camera.clone(),
         saddle_camera_pixel_camera::PixelCameraTransform::default(),
-        PixelShake {
-            amplitude: 0.0,
-            frequency: 16.0,
-            decay: 10.0,
-            seed: 7,
-        },
+        shake,
     ));
+    support::queue_example_pane(
+        &mut commands,
+        support::ExamplePixelPane::from_setup(
+            &camera,
+            Vec2::ZERO,
+            Some(&PixelShake {
+                amplitude: 0.0,
+                frequency: 16.0,
+                decay: 10.0,
+                seed: 7,
+            }),
+        ),
+    );
 }
 
 fn pulse_shake(time: Res<Time>, mut timer: ResMut<PulseTimer>, mut shakes: Query<&mut PixelShake>) {

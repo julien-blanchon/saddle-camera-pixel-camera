@@ -7,8 +7,9 @@ mod subpixel;
 
 pub use components::{
     HIGH_RES_LAYER_INDEX, HIGH_RES_LAYERS, PIXEL_LAYER_INDEX, PIXEL_LAYERS, PixelCamera,
-    PixelCameraCanvas, PixelCameraInner, PixelCameraOuter, PixelCameraTransform, PixelCursorHit,
-    PixelScaleChanged, PixelShake, PixelSnap, PixelViewportMetrics,
+    PixelCameraCanvas, PixelCameraInner, PixelCameraOuter, PixelCameraScaleMode,
+    PixelCameraTransform, PixelCursorHit, PixelScaleChanged, PixelShake, PixelSnap,
+    PixelViewportMetrics,
 };
 pub use cursor::{
     cursor_to_world, screen_to_virtual, screen_to_virtual_physical, screen_to_world,
@@ -86,6 +87,7 @@ impl Plugin for PixelCameraPlugin {
             .register_type::<PixelCameraCanvas>()
             .register_type::<PixelCameraInner>()
             .register_type::<PixelCameraOuter>()
+            .register_type::<PixelCameraScaleMode>()
             .register_type::<PixelCameraTransform>()
             .register_type::<PixelShake>()
             .register_type::<PixelSnap>()

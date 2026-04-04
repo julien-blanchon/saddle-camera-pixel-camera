@@ -5,8 +5,8 @@ use saddle_bevy_e2e::{
     scenario::Scenario,
 };
 use saddle_camera_pixel_camera::{
-    PixelCamera, PixelCameraCanvas, PixelCameraInner, PixelCameraOuter, PixelCameraTransform,
-    PixelViewportMetrics, screen_to_world,
+    PixelCamera, PixelCameraCanvas, PixelCameraInner, PixelCameraOuter, PixelCameraScaleMode,
+    PixelCameraTransform, PixelViewportMetrics, screen_to_world,
 };
 
 use crate::{LabCameraMotion, LabDiagnostics, LabRoot, support};
@@ -22,6 +22,7 @@ pub fn list_scenarios() -> Vec<&'static str> {
         "pixel_camera_subpixel_scroll",
         "pixel_camera_resize",
         "pixel_camera_zoom",
+        "pixel_camera_scale_modes",
         "pixel_camera_mixed_layers",
         "pixel_camera_cursor",
     ]
@@ -33,6 +34,7 @@ pub fn scenario_by_name(name: &str) -> Option<Scenario> {
         "pixel_camera_subpixel_scroll" => Some(build_subpixel_scroll()),
         "pixel_camera_resize" => Some(build_resize()),
         "pixel_camera_zoom" => Some(build_zoom()),
+        "pixel_camera_scale_modes" => Some(build_scale_modes()),
         "pixel_camera_mixed_layers" => Some(build_mixed_layers()),
         "pixel_camera_cursor" => Some(build_cursor()),
         _ => None,
@@ -184,6 +186,82 @@ fn build_zoom() -> Scenario {
         .then(Action::Screenshot("zoom_after".into()))
         .then(Action::WaitFrames(1))
         .then(assertions::log_summary("pixel_camera_zoom summary"))
+        .build()
+}
+
+fn build_scale_modes() -> Scenario {
+    Scenario::builder("pixel_camera_scale_modes")
+        .description(
+            "Force an awkward window size, verify integer-crop and fractional-fit presentation modes, then switch to a retro preset and assert the metrics rebuild around the new virtual resolution.",
+        )
+        .then(Action::WaitFrames(30))
+        .then(Action::Custom(Box::new(|world| {
+            let mut query = world.query_filtered::<&mut Window, With<PrimaryWindow>>();
+            let mut window = query.single_mut(world).expect("primary window exists");
+            window.resolution.set_physical_resolution(1024, 768);
+            window.resolution.set_scale_factor_override(Some(1.0));
+        })))
+        .then(Action::WaitFrames(8))
+        .then(Action::Custom(Box::new(|world| {
+            let mut pane = world
+                .resource_mut::<support::ExamplePixelPane>();
+            pane.scale_mode_index = 1.0;
+        })))
+        .then(Action::WaitFrames(8))
+        .then(assertions::custom(
+            "integer crop fills one axis and overflows the other",
+            |world| {
+                let metrics = metrics(world);
+                metrics.presentation_scale == metrics.integer_scale as f32
+                    && metrics.viewport_physical_size.x >= metrics.window_physical_size.x
+                    && metrics.viewport_physical_size.y >= metrics.window_physical_size.y
+                    && (metrics.viewport_physical_size.x > metrics.window_physical_size.x
+                        || metrics.viewport_physical_size.y > metrics.window_physical_size.y)
+                    && metrics.viewport_origin_physical.x <= 0
+                    && metrics.viewport_origin_physical.y <= 0
+                    && (metrics.viewport_origin_physical.x < 0
+                        || metrics.viewport_origin_physical.y < 0)
+            },
+        ))
+        .then(Action::Screenshot("scale_modes_crop".into()))
+        .then(Action::WaitFrames(1))
+        .then(Action::Custom(Box::new(|world| {
+            let mut pane = world
+                .resource_mut::<support::ExamplePixelPane>();
+            pane.scale_mode_index = 2.0;
+        })))
+        .then(Action::WaitFrames(8))
+        .then(assertions::custom(
+            "fractional fit keeps a non-integer presentation scale",
+            |world| {
+                let metrics = metrics(world);
+                metrics.presentation_scale > metrics.integer_scale as f32
+                    && (metrics.presentation_scale - metrics.presentation_scale.round()).abs() > 0.01
+            },
+        ))
+        .then(Action::Screenshot("scale_modes_fractional_fit".into()))
+        .then(Action::WaitFrames(1))
+        .then(Action::Custom(Box::new(|world| {
+            let preset = PixelCamera::gameboy();
+            let mut pane = world
+                .resource_mut::<support::ExamplePixelPane>();
+            pane.virtual_width = preset.virtual_size.x as f32;
+            pane.virtual_height = preset.virtual_size.y as f32;
+            pane.zoom = 2.0;
+            pane.scale_mode_index = match preset.scale_mode {
+                PixelCameraScaleMode::IntegerLetterbox => 0.0,
+                PixelCameraScaleMode::IntegerCrop => 1.0,
+                PixelCameraScaleMode::FractionalFit => 2.0,
+            };
+        })))
+        .then(Action::WaitFrames(8))
+        .then(assertions::custom("retro preset updates the virtual resolution", |world| {
+            let metrics = metrics(world);
+            metrics.virtual_size == UVec2::new(160, 144) && metrics.zoom == 2
+        }))
+        .then(assertions::log_summary("pixel_camera_scale_modes summary"))
+        .then(Action::Screenshot("scale_modes_gameboy".into()))
+        .then(Action::WaitFrames(1))
         .build()
 }
 

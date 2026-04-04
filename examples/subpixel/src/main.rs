@@ -1,7 +1,9 @@
 use saddle_camera_pixel_camera_example_support as support;
 
 use bevy::prelude::*;
-use saddle_camera_pixel_camera::{PixelCamera, PixelCameraPlugin, PixelCameraTransform, PixelViewportMetrics};
+use saddle_camera_pixel_camera::{
+    PixelCamera, PixelCameraPlugin, PixelCameraTransform, PixelViewportMetrics,
+};
 use support::{DemoActor, OverlayText};
 
 #[derive(Resource)]
@@ -13,19 +15,22 @@ fn main() {
         .add_plugins(PixelCameraPlugin::default())
         .add_systems(Startup, setup)
         .add_systems(Update, (animate_actor, pan_camera, update_overlay));
+    support::install_pane(&mut app);
     support::maybe_install_auto_exit(&mut app);
     app.run();
 }
 
 fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
+    let camera = PixelCamera::default();
+    let logical_position = Vec2::new(-24.25, 8.5);
     support::spawn_demo_world(&mut commands, &mut images);
     support::spawn_overlay(&mut commands, "subpixel.rs");
-    let root = support::spawn_pixel_camera_root(
-        &mut commands,
-        PixelCamera::default(),
-        Vec2::new(-24.25, 8.5),
-    );
+    let root = support::spawn_pixel_camera_root(&mut commands, camera.clone(), logical_position);
     commands.insert_resource(PixelCameraRoot(root));
+    support::queue_example_pane(
+        &mut commands,
+        support::ExamplePixelPane::from_setup(&camera, logical_position, None),
+    );
 }
 
 fn animate_actor(time: Res<Time>, mut actors: Query<&mut Transform, With<DemoActor>>) {

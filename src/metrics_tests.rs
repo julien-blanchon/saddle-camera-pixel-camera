@@ -1,4 +1,5 @@
 use super::*;
+use crate::PixelCameraScaleMode;
 
 fn window(width: u32, height: u32, scale_factor: f64) -> WindowCanvasInfo {
     WindowCanvasInfo {
@@ -36,8 +37,31 @@ fn viewport_origin_centers_letterboxed_canvas() {
     let camera = PixelCamera::new(320, 180);
     let metrics = compute_static_metrics(&camera, window(1920, 1200, 1.0));
     assert_eq!(metrics.integer_scale, 6);
+    assert_eq!(metrics.presentation_scale, 6.0);
     assert_eq!(metrics.viewport_physical_size, UVec2::new(1920, 1080));
     assert_eq!(metrics.viewport_origin_physical, IVec2::new(0, 60));
+}
+
+#[test]
+fn crop_mode_expands_canvas_past_window_bounds() {
+    let mut camera = PixelCamera::new(320, 180);
+    camera.scale_mode = PixelCameraScaleMode::IntegerCrop;
+    let metrics = compute_static_metrics(&camera, window(1920, 1200, 1.0));
+    assert_eq!(metrics.integer_scale, 7);
+    assert_eq!(metrics.presentation_scale, 7.0);
+    assert_eq!(metrics.viewport_physical_size, UVec2::new(2240, 1260));
+    assert_eq!(metrics.viewport_origin_physical, IVec2::new(-160, -30));
+}
+
+#[test]
+fn fractional_fit_mode_uses_non_integer_presentation_scale() {
+    let mut camera = PixelCamera::new(320, 180);
+    camera.scale_mode = PixelCameraScaleMode::FractionalFit;
+    let metrics = compute_static_metrics(&camera, window(1200, 720, 1.0));
+    assert_eq!(metrics.integer_scale, 3);
+    assert!((metrics.presentation_scale - 3.75).abs() < 0.000_1);
+    assert_eq!(metrics.viewport_physical_size, UVec2::new(1200, 675));
+    assert_eq!(metrics.viewport_origin_physical, IVec2::new(0, 23));
 }
 
 #[test]

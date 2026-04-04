@@ -24,7 +24,7 @@ If a helper entity is manually despawned during tooling or debugging, the runtim
 ## Data Flow
 
 1. Game code writes `PixelCameraTransform.logical_position`.
-2. `ComputeMetrics` refreshes integer scale, viewport fit, logical/physical window sizes, overscan size, and render-target size when config or window layout changes.
+2. `ComputeMetrics` refreshes integer scale, presentation scale, viewport fit, logical/physical window sizes, overscan size, and render-target size when config or window layout changes.
 3. `ComputeSubpixel` splits logical position into:
    - `snapped_position`: floor-aligned world-space pixel coordinate for the inner camera
    - `fractional_offset`: remaining subpixel delta
@@ -47,15 +47,22 @@ The render target is intentionally oversized by `zoom` pixels on each edge.
 
 Without that overscan, shifting the sampled canvas to account for fractional movement would reveal missing texels along the border. The crate instead renders a slightly larger world view, then crops back down to the requested virtual resolution through `Sprite::rect`.
 
-## Window Metrics
+## Window Metrics And Scale Modes
 
-The crate computes integer scale from physical window pixels, not logical points. This matters on HiDPI displays and when dragging a window between monitors with different scale factors.
+The crate computes presentation fit from physical window pixels, not logical points. This matters on HiDPI displays and when dragging a window between monitors with different scale factors.
+
+`PixelCameraScaleMode` controls the final canvas policy:
+
+- `IntegerLetterbox`: largest fully fitting integer scale
+- `IntegerCrop`: smallest covering integer scale, allowing overspill past the window edge
+- `FractionalFit`: tight aspect-correct fit with a non-integer presentation scale
 
 Cached metrics include:
 
 - physical window and viewport size
 - logical window and viewport size
 - integer scale
+- presentation scale
 - virtual resolution
 - zoom-adjusted world view size
 - snapped position and fractional remainder

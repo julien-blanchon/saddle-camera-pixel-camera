@@ -5,6 +5,14 @@ pub const HIGH_RES_LAYER_INDEX: usize = 1;
 pub const PIXEL_LAYERS: RenderLayers = RenderLayers::layer(PIXEL_LAYER_INDEX);
 pub const HIGH_RES_LAYERS: RenderLayers = RenderLayers::layer(HIGH_RES_LAYER_INDEX);
 
+#[derive(Reflect, Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum PixelCameraScaleMode {
+    #[default]
+    IntegerLetterbox,
+    IntegerCrop,
+    FractionalFit,
+}
+
 #[derive(Component, Reflect, Clone, Debug)]
 #[reflect(Component, Default, Debug, Clone)]
 #[require(
@@ -19,6 +27,7 @@ pub const HIGH_RES_LAYERS: RenderLayers = RenderLayers::layer(HIGH_RES_LAYER_IND
 pub struct PixelCamera {
     pub virtual_size: UVec2,
     pub zoom: u32,
+    pub scale_mode: PixelCameraScaleMode,
     pub outer_camera_order: isize,
     pub letterbox_color: Color,
     pub world_layers: RenderLayers,
@@ -32,6 +41,22 @@ impl PixelCamera {
             ..default()
         }
     }
+
+    pub fn nes() -> Self {
+        Self::new(256, 240)
+    }
+
+    pub fn snes() -> Self {
+        Self::new(256, 224)
+    }
+
+    pub fn gameboy() -> Self {
+        Self::new(160, 144)
+    }
+
+    pub fn gba() -> Self {
+        Self::new(240, 160)
+    }
 }
 
 impl Default for PixelCamera {
@@ -39,6 +64,7 @@ impl Default for PixelCamera {
         Self {
             virtual_size: UVec2::new(320, 180),
             zoom: 1,
+            scale_mode: PixelCameraScaleMode::IntegerLetterbox,
             outer_camera_order: 0,
             letterbox_color: Color::BLACK,
             world_layers: PIXEL_LAYERS.clone(),
@@ -57,6 +83,7 @@ pub struct PixelCameraTransform {
 #[reflect(Component, Default, Debug, Clone)]
 pub struct PixelViewportMetrics {
     pub integer_scale: u32,
+    pub presentation_scale: f32,
     pub zoom: u32,
     pub virtual_size: UVec2,
     pub world_view_size: Vec2,

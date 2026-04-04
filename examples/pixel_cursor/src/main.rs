@@ -15,16 +15,22 @@ fn main() {
         .add_plugins(PixelCameraPlugin::default())
         .add_systems(Startup, setup)
         .add_systems(Update, (update_cursor_marker, update_overlay));
+    support::install_pane(&mut app);
     support::maybe_install_auto_exit(&mut app);
     app.run();
 }
 
 fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
+    let camera = PixelCamera::default();
     support::spawn_demo_world(&mut commands, &mut images);
     support::spawn_cursor_marker(&mut commands, &mut images);
     support::spawn_overlay(&mut commands, "pixel_cursor.rs");
-    let root = support::spawn_pixel_camera_root(&mut commands, PixelCamera::default(), Vec2::ZERO);
+    let root = support::spawn_pixel_camera_root(&mut commands, camera.clone(), Vec2::ZERO);
     commands.insert_resource(PixelCameraRoot(root));
+    support::queue_example_pane(
+        &mut commands,
+        support::ExamplePixelPane::from_setup(&camera, Vec2::ZERO, None),
+    );
 }
 
 fn update_cursor_marker(
