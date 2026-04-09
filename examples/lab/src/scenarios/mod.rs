@@ -52,6 +52,69 @@ fn metrics(world: &World) -> PixelViewportMetrics {
         .clone()
 }
 
+fn resize_primary_window(
+    world: &mut World,
+    physical_width: u32,
+    physical_height: u32,
+    scale_factor_override: Option<f32>,
+) {
+    let mut query = world.query_filtered::<&mut Window, With<PrimaryWindow>>();
+    let mut window = query.single_mut(world).expect("primary window exists");
+    window
+        .resolution
+        .set_physical_resolution(physical_width, physical_height);
+    window.resolution.set_scale_factor_override(scale_factor_override);
+}
+
+fn set_cursor_position(world: &mut World, position: Vec2) {
+    let mut query = world.query_filtered::<&mut Window, With<PrimaryWindow>>();
+    let mut window = query.single_mut(world).expect("primary window exists");
+    window.set_cursor_position(Some(position));
+}
+
+fn set_scale_mode_index(world: &mut World, index: f32) {
+    world.resource_mut::<support::ExamplePixelPane>().scale_mode_index = index;
+}
+
+fn apply_gameboy_preset(world: &mut World) {
+    let preset = PixelCamera::gameboy();
+    let mut pane = world.resource_mut::<support::ExamplePixelPane>();
+    pane.virtual_width = preset.virtual_size.x as f32;
+    pane.virtual_height = preset.virtual_size.y as f32;
+    pane.zoom = 2.0;
+    pane.scale_mode_index = match preset.scale_mode {
+        PixelCameraScaleMode::IntegerLetterbox => 0.0,
+        PixelCameraScaleMode::IntegerCrop => 1.0,
+        PixelCameraScaleMode::FractionalFit => 2.0,
+    };
+}
+
+fn set_camera_motion(world: &mut World, enabled: bool, velocity: Vec2) {
+    let mut motion = world.resource_mut::<LabCameraMotion>();
+    motion.enabled = enabled;
+    motion.velocity = velocity;
+}
+
+fn set_camera_zoom(world: &mut World, zoom: u32) {
+    let root = root(world);
+    let mut entity = world.entity_mut(root);
+    let mut camera = entity.get_mut::<PixelCamera>().expect("pixel camera exists");
+    camera.zoom = zoom;
+}
+
+fn letterbox_cursor_position(world: &World) -> Vec2 {
+    let viewport = metrics(world);
+    Vec2::new(
+        viewport.viewport_origin_logical.x * 0.5,
+        viewport.viewport_origin_logical.y * 0.5,
+    )
+}
+
+fn viewport_center_cursor_position(world: &World) -> Vec2 {
+    let viewport = metrics(world);
+    viewport.viewport_origin_logical + viewport.viewport_logical_size * 0.5
+}
+
 fn build_smoke() -> Scenario {
     Scenario::builder("pixel_camera_smoke")
         .description(
@@ -86,8 +149,7 @@ fn build_subpixel_scroll() -> Scenario {
             world.insert_resource(Snapshot {
                 snapped_position: metrics(world).snapped_position,
             });
-            world.resource_mut::<LabCameraMotion>().enabled = true;
-            world.resource_mut::<LabCameraMotion>().velocity = Vec2::new(19.0, 0.0);
+            set_camera_motion(world, true, Vec2::new(19.0, 0.0));
         })))
         .then(Action::Screenshot("subpixel_scroll_start".into()))
         .then(Action::WaitFrames(1))
@@ -102,7 +164,7 @@ fn build_subpixel_scroll() -> Scenario {
             metrics(world).snapped_position != world.resource::<Snapshot>().snapped_position
         }))
         .then(Action::Custom(Box::new(|world| {
-            world.resource_mut::<LabCameraMotion>().enabled = false;
+            set_camera_motion(world, false, Vec2::ZERO);
         })))
         .then(Action::Screenshot("subpixel_scroll_end".into()))
         .then(Action::WaitFrames(1))
@@ -119,10 +181,7 @@ fn build_resize() -> Scenario {
         .then(Action::Screenshot("resize_before".into()))
         .then(Action::WaitFrames(1))
         .then(Action::Custom(Box::new(|world| {
-            let mut query = world.query_filtered::<&mut Window, With<PrimaryWindow>>();
-            let mut window = query.single_mut(world).expect("primary window exists");
-            window.resolution.set_physical_resolution(1024, 768);
-            window.resolution.set_scale_factor_override(Some(1.0));
+            resize_primary_window(world, 1024, 768, Some(1.0));
         })))
         .then(Action::WaitFrames(8))
         .then(assertions::custom(
@@ -138,9 +197,7 @@ fn build_resize() -> Scenario {
         .then(Action::Screenshot("resize_letterboxed".into()))
         .then(Action::WaitFrames(1))
         .then(Action::Custom(Box::new(|world| {
-            let mut query = world.query_filtered::<&mut Window, With<PrimaryWindow>>();
-            let mut window = query.single_mut(world).expect("primary window exists");
-            window.resolution.set_scale_factor_override(Some(2.0));
+            resize_primary_window(world, 1024, 768, Some(2.0));
         })))
         .then(Action::WaitFrames(8))
         .then(assertions::resource_satisfies::<LabDiagnostics>(
@@ -173,10 +230,7 @@ fn build_zoom() -> Scenario {
         .then(Action::Screenshot("zoom_before".into()))
         .then(Action::WaitFrames(1))
         .then(Action::Custom(Box::new(|world| {
-            let root = root(world);
-            let mut entity = world.entity_mut(root);
-            let mut camera = entity.get_mut::<PixelCamera>().expect("pixel camera exists");
-            camera.zoom = 3;
+            set_camera_zoom(world, 3);
         })))
         .then(Action::WaitFrames(8))
         .then(assertions::custom("zoom updates metrics", |world| {
@@ -196,16 +250,11 @@ fn build_scale_modes() -> Scenario {
         )
         .then(Action::WaitFrames(30))
         .then(Action::Custom(Box::new(|world| {
-            let mut query = world.query_filtered::<&mut Window, With<PrimaryWindow>>();
-            let mut window = query.single_mut(world).expect("primary window exists");
-            window.resolution.set_physical_resolution(1024, 768);
-            window.resolution.set_scale_factor_override(Some(1.0));
+            resize_primary_window(world, 1024, 768, Some(1.0));
         })))
         .then(Action::WaitFrames(8))
         .then(Action::Custom(Box::new(|world| {
-            let mut pane = world
-                .resource_mut::<support::ExamplePixelPane>();
-            pane.scale_mode_index = 1.0;
+            set_scale_mode_index(world, 1.0);
         })))
         .then(Action::WaitFrames(8))
         .then(assertions::custom(
@@ -226,9 +275,7 @@ fn build_scale_modes() -> Scenario {
         .then(Action::Screenshot("scale_modes_crop".into()))
         .then(Action::WaitFrames(1))
         .then(Action::Custom(Box::new(|world| {
-            let mut pane = world
-                .resource_mut::<support::ExamplePixelPane>();
-            pane.scale_mode_index = 2.0;
+            set_scale_mode_index(world, 2.0);
         })))
         .then(Action::WaitFrames(8))
         .then(assertions::custom(
@@ -242,17 +289,7 @@ fn build_scale_modes() -> Scenario {
         .then(Action::Screenshot("scale_modes_fractional_fit".into()))
         .then(Action::WaitFrames(1))
         .then(Action::Custom(Box::new(|world| {
-            let preset = PixelCamera::gameboy();
-            let mut pane = world
-                .resource_mut::<support::ExamplePixelPane>();
-            pane.virtual_width = preset.virtual_size.x as f32;
-            pane.virtual_height = preset.virtual_size.y as f32;
-            pane.zoom = 2.0;
-            pane.scale_mode_index = match preset.scale_mode {
-                PixelCameraScaleMode::IntegerLetterbox => 0.0,
-                PixelCameraScaleMode::IntegerCrop => 1.0,
-                PixelCameraScaleMode::FractionalFit => 2.0,
-            };
+            apply_gameboy_preset(world);
         })))
         .then(Action::WaitFrames(8))
         .then(assertions::custom("retro preset updates the virtual resolution", |world| {
@@ -287,21 +324,12 @@ fn build_cursor() -> Scenario {
         )
         .then(Action::WaitFrames(20))
         .then(Action::Custom(Box::new(|world| {
-            let mut query = world.query_filtered::<&mut Window, With<PrimaryWindow>>();
-            let mut window = query.single_mut(world).expect("primary window exists");
-            window.resolution.set_physical_resolution(1024, 768);
-            window.resolution.set_scale_factor_override(Some(1.0));
+            resize_primary_window(world, 1024, 768, Some(1.0));
         })))
         .then(Action::WaitFrames(8))
         .then(Action::Custom(Box::new(|world| {
-            let viewport = metrics(world);
-            let mut query = world.query_filtered::<&mut Window, With<PrimaryWindow>>();
-            let mut window = query.single_mut(world).expect("primary window exists");
-            let letterbox_position = Vec2::new(
-                viewport.viewport_origin_logical.x * 0.5,
-                viewport.viewport_origin_logical.y * 0.5,
-            );
-            window.set_cursor_position(Some(letterbox_position));
+            let position = letterbox_cursor_position(world);
+            set_cursor_position(world, position);
         })))
         .then(Action::WaitFrames(4))
         .then(assertions::resource_satisfies::<LabDiagnostics>(
@@ -311,12 +339,8 @@ fn build_cursor() -> Scenario {
         .then(Action::Screenshot("cursor_letterbox".into()))
         .then(Action::WaitFrames(1))
         .then(Action::Custom(Box::new(|world| {
-            let viewport = metrics(world);
-            let mut query = world.query_filtered::<&mut Window, With<PrimaryWindow>>();
-            let mut window = query.single_mut(world).expect("primary window exists");
-            window.set_cursor_position(Some(
-                viewport.viewport_origin_logical + viewport.viewport_logical_size * 0.5,
-            ));
+            let position = viewport_center_cursor_position(world);
+            set_cursor_position(world, position);
         })))
         .then(Action::WaitFrames(4))
         .then(assertions::resource_satisfies::<LabDiagnostics>(
